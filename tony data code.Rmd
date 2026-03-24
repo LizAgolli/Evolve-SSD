@@ -1,0 +1,134 @@
+---
+title: "FVW"
+author: "Liz Chen"
+date: "2026-02-10"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+library(ggExtra)
+library(cowplot)
+library(ACER)
+library(CMplot)
+library(plotly)
+library(dplyr)
+
+setwd("~/Documents/SSD_Data")
+```
+
+```{r}
+FVW <- read.csv("Cleaned up FVW.csv")
+head(FVW)
+
+#Clean up sex factor
+FVW$sex <- as.factor(FVW$sex)
+levels(FVW$sex) <- c("NA", "NA", "NA", "NA", "F", "F", "M", "M", "NA")
+FVW$sex <- factor(FVW$sex)  # Remove NA levels
+
+#Filter for top 10% (use 0.9 for top 10%)
+FVWtop10 <- FVW %>%
+  group_by(lineage, sex) %>%
+  filter(lnpupa >= quantile(lnpupa, probs = 0.9, na.rm = TRUE)) %>%
+  ungroup()
+
+#Count how many females and males per lineage
+lineage_counts <- FVWtop10 %>%
+  group_by(lineage, sex) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  pivot_wider(names_from = sex, values_from = count, values_fill = 0)
+
+#Filter lineages that have at least 5 females and 5 males
+valid_lineages <- lineage_counts %>%
+  filter(F >= 5 & M >= 5) %>%
+  pull(lineage)
+
+FVW_filtered <- FVWtop10 %>%
+  filter(lineage %in% valid_lineages)
+
+#Calculate means
+means10 <- FVW_filtered %>%
+  group_by(lineage, sex) %>%
+  summarise(mean_pupa = mean(lnpupa, na.rm = TRUE), .groups = "drop")
+
+#Calculate SSD
+FVWSSD10 <- means10 %>%
+  pivot_wider(names_from = sex, values_from = mean_pupa) %>%
+  mutate(SSD = F - M)
+
+#Plot
+ggplot(FVWSSD10, aes(x = SSD)) +
+  geom_histogram(bins = 20) + 
+  theme_cowplot() +
+  labs(title = "Sexual Size Dimorphism (Top 10% by Lineage)",
+       x = "SSD (Female - Male)",
+       y = "Count")
+```
+
+rank plot
+```{r}
+ggplot(FVWSSD10, aes(x = reorder(lineage, -SSD), y = SSD)) +
+  geom_segment(aes(x = reorder(lineage, -SSD),
+                   xend = reorder(lineage, -SSD),
+                   y = 0, yend = SSD),
+               color = "gray", lwd = 1) +
+  geom_point(size = 3, pch = 21, bg = 4, col = 1) +
+  xlab("Group") +
+  ylab("") +
+  theme_cowplot()+
+  theme(axis.text.x = element_text(angle = 90,
+                                   vjust = 0.5, hjust = 1))
+ggsave("~/Documents/SSD_Data/Thesis/figures/FVW_rank.svg", width = 6, height = 6, bg = "white")
+```
+
+morphospace
+```{r}
+head(FVWSSD10)
+p <- ggplot(FVWSSD10, aes(x = M, y = F)) +
+  geom_point(size = 1) +
+  geom_abline(slope = 1, intercept = 0, color = "grey") +
+  scale_y_continuous(limits=c(14.7, (14.7+0.25)), expand = c(0, 0)) +
+  scale_x_continuous(limits=c(14.57, (14.57+.25)), expand = c(0, 0))+
+  theme_cowplot()
+
+pDense <- ggMarginal(p, fill="#2297e6")
+pDense
+ggsave("~/Documents/SSD_Data/Thesis/figures/FVW_FvM.svg", width = 6, height = 6, bg = "white")
+```
+
+SSD for all lines with more than five females and five males
+```{r}
+#Count how many females and males per lineage
+all_lineage_counts <- FVW %>%
+  group_by(lineage, sex) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  pivot_wider(names_from = sex, values_from = count, values_fill = 0)
+
+#Filter lineages that have at least 5 females and 5 males
+all_valid_lineages <- all_lineage_counts %>%
+  filter(F >= 5 & M >= 5) %>%
+  pull(lineage)
+
+all_FVW_filtered <- FVW %>%
+  filter(lineage %in% all_valid_lineages)
+
+#Calculate means
+means <- all_FVW_filtered %>%
+  group_by(lineage, sex) %>%
+  summarise(mean_pupa = mean(lnpupa, na.rm = TRUE), .groups = "drop")
+
+#Calculate SSD
+FVWSSD <- means %>%
+  pivot_wider(names_from = sex, values_from = mean_pupa) %>%
+  mutate(SSD = F - M)
+
+#Plot
+ggplot(FVWSSD, aes(x = SSD)) +
+  geom_histogram(bins = 20) + 
+  theme_cowplot() +
+  labs(title = "Sexual Size Dimorphism Unfiltered",
+       x = "SSD (Female - Male)",
+       y = "Count")
+```

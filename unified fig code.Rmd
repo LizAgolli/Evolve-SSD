@@ -1,0 +1,876 @@
+---
+title: "Untitled"
+author: "Elizabeth Chen"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r}
+library(survival)
+library(tidyverse)
+library(finalfit)
+library(dplyr)
+library(readxl)
+library(readr)
+library(forcats)
+library(beepr)
+library(cowplot)
+library(tidyr)
+library(scales)
+library(tidyverse)
+library(ggplot2)
+library(ggthemes)
+library(stringr)
+library(splitstackshape)
+library(MASS)
+library(investr)
+library(survminer)
+#detach("package:plyr", unload = TRUE)
+setwd("~/Documents/SSD_Data") #folder files are in
+#Aim 1
+inddat <- read_excel("SSD_means_.xlsx", sheet="individuals")
+famdat <- read_excel("SSD_means_.xlsx", sheet="family means")
+diffdat <- read_excel("SSD_means_.xlsx", sheet="generational differentials")
+adjgen <- read_excel("SSD_means_.xlsx", sheet="adj gen means") #sometimes also called groupdat
+LLsexsd <- read_excel("SSD_means_.xlsx", sheet="LLsexsd")
+HLsexsd <- read_excel("SSD_means_.xlsx", sheet="HLsexsd")
+boot_slopes <- read.csv("bootstrapped slopes.csv")
+slope_H_SSD <- read.csv("slope_H_SSD.csv")
+slope_L_SSD <- read.csv("slope_L_SSD.csv")
+slope_H_F <- read.csv("slope_H_F.csv")
+slope_L_F <- read.csv("slope_L_F.csv")
+slope_H_M <- read.csv("slope_H_M.csv")
+slope_L_M <- read.csv("slope_L_M.csv")
+gen.wide <- read_excel("SSD_means_.xlsx", sheet="generational wide")
+iVf <- read.csv("initialVfinalFamily.csv")
+
+#Aim 2
+#char_ssd <- read_csv('IsoResults9Dec24.csv')
+#char_mvw <- read.csv('MVW.csv')
+#char_aging <- read.csv('Aging.csv')
+#char_fer <- read.csv('Fertility.csv')
+#char_vit <- read.csv('Vitality.csv')
+```
+
+```{r design parameters}
+# Define style parameters
+L_col <- "#004c84"  # Low line color
+L.col <- '#004c84'
+H_col <- "#ffb656"  # High line color
+H.col <- '#ffb656'
+C_col <- "#7f7f7f"
+C.col <- '#7f7f7f'
+line_size <- 2       # Line size for main lines
+point_size <- 4      # Point size
+point_shapeF <- 16
+point_shapeM <- 15
+line_F <- "solid"
+line_M <- "E1"
+plot_width <- 12    # Plot width
+plot_height <- 6   # Plot height
+```
+
+#Aim 1
+```{r ssd characterization code}
+summary(slope_H_SSD$V1)
+summary(slope_L_SSD$V1)
+SSD_H2.5 <- quantile(na.omit(slope_H_SSD$V1), 0.025)
+SSD_H97.5 <- quantile(na.omit(slope_H_SSD$V1), 0.975)
+SSD_L2.5 <- quantile(na.omit(slope_L_SSD$V1), 0.025)
+SSD_L97.5 <- quantile(na.omit(slope_L_SSD$V1), 0.975)
+
+
+summary(slope_H_F$V1)
+summary(slope_L_F$V1)
+F_H2.5 <- quantile(na.omit(slope_H_F$V1), 0.025)
+F_H97.5 <- quantile(na.omit(slope_H_F$V1), 0.975)
+F_L2.5 <- quantile(na.omit(slope_L_F$V1), 0.025)
+F_L97.5 <- quantile(na.omit(slope_L_F$V1), 0.975)
+
+
+summary(slope_H_M$V1)
+summary(slope_L_M$V1)
+M_H2.5 <- quantile(na.omit(slope_H_M$V1), 0.025)
+M_H97.5 <- quantile(na.omit(slope_H_M$V1), 0.975)
+M_L2.5 <- quantile(na.omit(slope_L_M$V1), 0.025)
+M_L97.5 <- quantile(na.omit(slope_L_M$V1), 0.975)
+
+SSD_H2.5xGen <- quantile(na.omit(boot_slopes$slope_H_SSDxGen), 0.025)
+SSD_H97.5xGen <- quantile(na.omit(boot_slopes$slope_H_SSDxGen), 0.975)
+SSD_L2.5xGen <- quantile(na.omit(boot_slopes$slope_L_SSDxGen), 0.025)
+SSD_L97.5xGen <- quantile(na.omit(boot_slopes$slope_L_SSDxGen), 0.975)
+
+F_H2.5xGen <- quantile(na.omit(boot_slopes$slope_H_FxGen), 0.025)
+F_H97.5xGen <- quantile(na.omit(boot_slopes$slope_H_FxGen), 0.975)
+F_L2.5xGen <- quantile(na.omit(boot_slopes$slope_L_FxGen), 0.025)
+F_L97.5xGen <- quantile(na.omit(boot_slopes$slope_L_FxGen), 0.975)
+
+M_H2.5xGen <- quantile(na.omit(boot_slopes$slope_H_MxGen), 0.025)
+M_H97.5xGen <- quantile(na.omit(boot_slopes$slope_H_MxGen), 0.975)
+M_L2.5xGen <- quantile(na.omit(boot_slopes$slope_L_MxGen), 0.025)
+M_L97.5xGen <- quantile(na.omit(boot_slopes$slope_L_MxGen), 0.975)
+
+SSD_H2.5xCSD <- quantile(na.omit(boot_slopes$slope_H_SSDxCSD), 0.025)
+SSD_H97.5xCSD <- quantile(na.omit(boot_slopes$slope_H_SSDxCSD), 0.975)
+SSD_L2.5xCSD <- quantile(na.omit(boot_slopes$slope_L_SSDxCSD), 0.025)
+SSD_L97.5xCSD <- quantile(na.omit(boot_slopes$slope_L_SSDxCSD), 0.975)
+
+F_H2.5xCSD <- quantile(na.omit(boot_slopes$slope_H_FxCSD), 0.025)
+F_H97.5xCSD <- quantile(na.omit(boot_slopes$slope_H_FxCSD), 0.975)
+F_L2.5xCSD <- quantile(na.omit(boot_slopes$slope_L_FxCSD), 0.025)
+F_L97.5xCSD <- quantile(na.omit(boot_slopes$slope_L_FxCSD), 0.975)
+
+M_H2.5xCSD <- quantile(na.omit(boot_slopes$slope_H_MxCSD), 0.025)
+M_H97.5xCSD <- quantile(na.omit(boot_slopes$slope_H_MxCSD), 0.975)
+M_L2.5xCSD <- quantile(na.omit(boot_slopes$slope_L_MxCSD), 0.025)
+M_L97.5xCSD <- quantile(na.omit(boot_slopes$slope_L_MxCSD), 0.975)
+```
+
+```{r aim 1 plots}
+figSSDadj <- ggplot(adjgen, aes(x=generation, y=adj.ssd, group=line, color=line)) + 
+  geom_hline(yintercept=0, color = C_col)+
+  geom_vline(xintercept=0) +
+  geom_ribbon(aes(x=generation,ymin=generation*SSD_H2.5, ymax=generation*SSD_H97.5), alpha = 0.38, fill = H_col, linetype = 0) +
+  geom_ribbon(aes(x=generation,ymin=generation*SSD_L2.5, ymax=generation*SSD_L97.5), alpha = 0.38, fill = L_col, linetype = 0) + 
+  geom_line(size=2) +   
+  labs(
+#    title = "Sexual Size Dimorphism During Selection",
+    x = "Generation",
+    y = "Adjusted SSD") +
+  scale_y_continuous(breaks=seq(-0.03,0.03,0.01), limits=c(-0.035, 0.035))+
+  scale_x_continuous(expand = c(0, 0), limits = c(0, NA)) + 
+  theme_cowplot() +
+  theme(
+    legend.position = "none",
+    strip.text.y = element_text(size = 25),
+    strip.text.x = element_text(size = 25))+
+  geom_smooth(method=lm, se=FALSE, formula=y~x-1) +
+  scale_color_manual(values = c(H_col, L_col))
+
+figSSDadj
+ggsave("~/Documents/SSD_Data/Thesis/figures/figSSDadj.png", width = plot_width, height = plot_height, bg = "white")
+ggsave("~/Documents/SSD_Data/Thesis/figures/figSSDadj.svg", width = plot_width, height = plot_height, bg = "white")
+
+#ACTUAL
+x_vals <- seq(0, 15, length = 1000)
+
+# Perform the interpolation
+H.mean.f_interp <- approx(gen.wide$generation, gen.wide$H.mean.f, xout = x_vals)$y
+H.mean.m_interp <- approx(gen.wide$generation, gen.wide$H.mean.m, xout = x_vals)$y
+
+original_diff <- gen.wide$H.mean.f - gen.wide$H.mean.m
+interpolated_diff <- H.mean.f_interp - H.mean.m_interp
+
+# Print original and interpolated differences for comparison
+print("Original Differences:")
+print(original_diff)
+print("Interpolated Differences:")
+print(interpolated_diff[seq(1, length(interpolated_diff), length.out = length(original_diff))])  # Match lengths for comparison
+
+# Create the new dataframe with interpolated values
+df2H <- data.frame(
+  x = x_vals,
+  y1 = H.mean.f_interp,
+  y2 = H.mean.m_interp,
+  SSD = H.mean.f_interp - H.mean.m_interp
+)
+
+Hgrad <- ggplot(gen.wide, aes(generation)) +       # Create ggplot2 plot
+  geom_segment(aes(x = x, y = y1, xend = x, yend = y2, color = SSD), data = df2H, linewidth = 1) +
+  labs(
+    title = "High Line Actual Body Size",
+    x = "Generation",
+    y = "Actual Size") +
+  theme_cowplot() +
+  theme(
+    legend.position = "right",
+    legend.title.align=0.5,
+    legend.background = element_rect(fill="lightgrey", 
+                                  size=0.5, linetype="solid"),
+    strip.text.y = element_text(size = 25),
+    strip.text.x = element_text(size = 25))+
+  scale_y_continuous(expand = c(0, 0), limits=c(14.73, 14.965), breaks = c(14.7, 14.8, 14.9, 15)) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, NA), breaks = c(5,10,15)) +
+  scale_colour_gradientn(colours = c(L.col, C.col, H.col), 
+                         values = rescale(c(0.115, 0.136, 0.175)),
+                         guide = "colorbar", limits=c(0.115,0.175))
+
+Hgrad
+ggsave("~/Documents/SSD_Data/Thesis/figures/Hgrad.png", width = plot_width/2, height = plot_height, bg = "white")
+ggsave("~/Documents/SSD_Data/Thesis/figures/Hgrad.svg", width = plot_width/2, height = plot_height, bg = "white")
+
+
+# Perform the interpolation
+L.mean.f_interp <- approx(gen.wide$generation, gen.wide$L.mean.f, xout = x_vals)$y
+L.mean.m_interp <- approx(gen.wide$generation, gen.wide$L.mean.m, xout = x_vals)$y
+
+original_diff <- gen.wide$L.mean.f - gen.wide$L.mean.m
+interpolated_diff <- L.mean.f_interp - L.mean.m_interp
+
+# Create the new dataframe with interpolated values
+df2L <- data.frame(
+  x = x_vals,
+  y1 = L.mean.f_interp,
+  y2 = L.mean.m_interp,
+  SSD = L.mean.f_interp - L.mean.m_interp
+)
+
+Lgrad <- ggplot(gen.wide, aes(generation)) +       # Create ggplot2 plot
+  geom_segment(aes(x = x, y = y1, xend = x, yend = y2, color = SSD), data = df2L, linewidth = 1) +
+  labs(
+    title = "Low Line Actual Body Size",
+    x = "Generation",
+    y = "Actual Size") +
+  theme_cowplot() +
+  theme(
+    legend.position = "right",
+    legend.title.align=0.5,
+    legend.background = element_rect(fill="lightgrey", 
+                                  size=0.5, linetype="solid"),
+    strip.text.y = element_text(size = 25),
+    strip.text.x = element_text(size = 25))+
+  scale_y_continuous(expand = c(0, 0), limits=c(14.73, 14.965), breaks = c(14.7, 14.8, 14.9, 15)) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, NA), breaks = c(5,10,15)) +
+  scale_colour_gradientn(colours = c(L.col, C.col, H.col), 
+                         values = rescale(c(0.115, 0.136, 0.175)),
+                         guide = "colorbar", limits=c(0.115,0.175))
+
+Lgrad
+ggsave("~/Documents/SSD_Data/Thesis/figures/Lgrad.png", width = plot_width/2, height = plot_height, bg = "white")
+ggsave("~/Documents/SSD_Data/Thesis/figures/Lgrad.svg", width = plot_width/2, height = plot_height, bg = "white")
+
+
+
+figFadj <- ggplot(adjgen, aes(x = generation, y = adj.f, group = line, color = line)) +
+  geom_hline(yintercept=0, color = C_col)+
+  geom_ribbon(
+    aes(ymin = generation * F_H2.5, 
+        ymax = generation * F_H97.5, 
+        fill = "H_line"), 
+    alpha = 0.38, color = NA, show.legend = FALSE) +
+  geom_ribbon(
+    aes(ymin = generation * F_L2.5, 
+        ymax = generation * F_L97.5, 
+        fill = "L_line"),
+    alpha = 0.38, color = NA, show.legend = FALSE) +
+  geom_smooth(method = lm, se = FALSE, formula = y ~ x - 1) +
+  geom_line(size = 1, linetype = line_F) +
+  geom_point(size = point_size, shape = point_shapeF) +
+  geom_point(color= "white", size = 1.5, shape = point_shapeF) +
+  scale_color_manual(values = c(H_col, L_col)) +
+  scale_fill_manual(values = c(H_col, L_col)) + 
+  labs(
+ #   title = "Changes in Female Body Size",
+    x = "Generation",
+    y = "Adjusted Body Size") +
+  scale_y_continuous(breaks = seq(-0.05, 0.075, 0.025),  limits = c(-0.05, 0.07), expand = c(0, 0)) +
+  scale_x_continuous(breaks = c(0, 5, 10, 15), expand = c(0, 0), limits = c(0, NA)) +
+  theme_cowplot() +
+  theme(
+    legend.position = "none",
+    strip.text.y = element_text(size = 25),
+    strip.text.x = element_text(size = 25))
+
+figFadj
+ggsave("~/Documents/SSD_Data/Thesis/figures/figFadj.png", width = plot_width/2, height = plot_height, bg = "white")
+ggsave("~/Documents/SSD_Data/Thesis/figures/figFadj.svg", width = plot_width/2, height = plot_height, bg = "white")
+
+
+figMadj <- ggplot(adjgen, aes(x = generation, y = adj.m, group = line, color = line)) +
+  geom_hline(yintercept=0, color = C_col)+
+  geom_ribbon(
+    aes(ymin = generation * M_H2.5, 
+        ymax = generation * M_H97.5, 
+        fill = "H_line"), 
+    alpha = 0.38, color = NA, show.legend = FALSE) +
+  geom_ribbon(
+    aes(ymin = generation * M_L2.5, 
+        ymax = generation * M_L97.5, 
+        fill = "L_line"),
+    alpha = 0.38, color = NA, show.legend = FALSE) +
+  geom_smooth(method = lm, se = FALSE, formula = y ~ x - 1) +
+  geom_line(size = 1, linetype = line_M) +
+  geom_point(size = point_size, shape = point_shapeM) +
+  geom_point(color= "white", size = 1.5, shape = point_shapeM) +
+  scale_color_manual(values = c(H_col, L_col)) +
+  scale_fill_manual(values = c(H_col, L_col)) + 
+  labs(
+#    title = "Changes in Male Body Size",
+    x = "Generation",
+    y = "Adjusted Body Size") +
+  scale_y_continuous(breaks = seq(-0.05, 0.075, 0.025),  limits = c(-0.05, 0.07), expand = c(0, 0)) +
+  scale_x_continuous(breaks = c(0, 5, 10, 15), expand = c(0, 0), limits = c(0, NA)) +
+  theme_cowplot() +
+  theme(
+    legend.position = "none",
+    strip.text.y = element_text(size = 25),
+    strip.text.x = element_text(size = 25))
+
+figMadj
+
+ggsave("~/Documents/SSD_Data/Thesis/figures/figMadj.png", width = plot_width/2, height = plot_height, bg = "white")
+ggsave("~/Documents/SSD_Data/Thesis/figures/figMadj.svg", width = plot_width/2, height = plot_height, bg = "white")
+```
+
+```{r}
+bottom_row <- plot_grid(figFadj, figMadj, labels = c('B', 'C'), label_size = 16)
+plot_grid(figSSDadj, bottom_row, labels = c('A', ''), label_size = 16, ncol = 1, 
+          rel_heights = c(2, 1))
+
+ggsave("~/Documents/SSD_Data/Thesis/figures/fig2.1.png", width = plot_width, height = plot_width-2, bg = "white")
+```
+
+```{r initial vs final}
+intVfin <- ggplot(iVf, aes(x=mean.m, y=mean.f, group=line, color=line)) +
+  geom_point(aes(shape = line, size = .1, alpha = line)) +
+  scale_shape_manual(values = c("C" = 16, "H" = 16, "I" = 1, "L" = 16)) +
+  scale_color_manual(values = c("C" = C_col, 
+                               "H" = H_col, 
+                               "I" = "black", 
+                               "L" = L_col)) +
+  scale_alpha_manual(values = c("C" = 0.5, "H" = 0.5, "I" = 1, "L" = 0.5), guide = "none") + # Consistent alpha
+  theme_cowplot()
+
+intVfin
+#ggsave("~/Documents/SSD_Data/Thesis/figures/intVfin.png", width = plot_width/2, height = plot_height, bg = "white")
+#ggsave("~/Documents/SSD_Data/Thesis/figures/intVfin.svg", width = plot_width/2, height = plot_height, bg = "white")
+
+#subset data
+FvML <- subset(diffdat, select = c(generation, L.mean.f, L.mean.m))
+FvMH <- subset(diffdat, select = c(generation, H.mean.f, H.mean.m))
+FvMC <- subset(diffdat, select = c(generation, C.mean.f, C.mean.m))
+
+#add line
+FvML$line <- as.factor("L")
+FvMH$line <- as.factor("H")
+FvMC$line <- as.factor("C")
+
+#rename columns
+names(FvML)[names(FvML) == "L.mean.f"] <- "mean.f"
+names(FvML)[names(FvML) == "L.mean.m"] <- "mean.m"
+names(FvMH)[names(FvMH) == "H.mean.f"] <- "mean.f"
+names(FvMH)[names(FvMH) == "H.mean.m"] <- "mean.m"
+names(FvMC)[names(FvMC) == "C.mean.f"] <- "mean.f"
+names(FvMC)[names(FvMC) == "C.mean.m"] <- "mean.m"
+FvM <- rbind(FvMC, FvMH, FvML)
+print(FvM)
+
+FvMplot <- ggplot(FvM, aes(x = mean.m, y = mean.f, group=line, color=line)) +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0, color = "black") +
+  scale_y_continuous(limits=c((14.975-.10), 14.975), expand = c(0, 0)) +
+  scale_x_continuous(limits=c(14.725, (14.725+.10)), expand = c(0, 0))+
+  geom_path(arrow = arrow(angle = 10, ends= "both", type = "closed"),size=0.5)
+
+FvMplot
+ggsave("~/Documents/SSD_Data/Committee2025/FvM.png", width = 5, height = 5, bg = "white")
+```
+
+```{r}
+figSSDcmltvSD <- ggplot(adjgen, aes(x=cmltv.diff.ssd, y=adj.ssd, group=line, color=line)) + 
+  geom_ribbon(data = ~ subset(.x, line == "H"),
+    aes(x = cmltv.diff.ssd, ymin = cmltv.diff.ssd * SSD_H2.5xCSD, ymax = cmltv.diff.ssd * SSD_H97.5xCSD), fill = H_col, 
+    alpha = 0.38, color = NA, show.legend = FALSE) +
+  geom_ribbon(data = ~ subset(.x, line == "L"),
+    aes(x = cmltv.diff.ssd, ymin = cmltv.diff.ssd * SSD_L2.5xCSD, ymax = cmltv.diff.ssd * SSD_L97.5xCSD), fill = L_col, 
+    alpha = 0.38, color = NA, show.legend = FALSE) +  
+  geom_hline(yintercept=0, color = C_col)+
+  geom_vline(xintercept=0)+
+  geom_point(size=3) +
+  labs(
+#    title = "Cumulative Selection of Sexual Size Dimorphism",
+    x = "Cumulative Selection Differential",
+    y = "Adjusted Sexual Size Dimorphism") +
+  scale_y_continuous(breaks=seq(-0.03, 0.03, 0.01), limits=c(-0.035, 0.035), expand = c(0, 0))+
+  scale_x_continuous(breaks=seq(0, 0.45, 0.1), expand = c(0, 0), limits = c(0, NA)) +
+  theme_cowplot() +
+  theme(
+    legend.position = "none",
+    strip.text.y = element_text(size = 20),
+    strip.text.x = element_text(size = 20))+
+  geom_smooth(method=lm, se=FALSE, formula=y~x-1) +
+  scale_color_manual(values = c(H_col,L_col))
+
+figSSDcmltvSD
+ggsave("~/Documents/SSD_Data/Thesis/figures/figSSDcmltvSD.png", width = plot_width, height = plot_height, bg = "white")
+ggsave("~/Documents/SSD_Data/Thesis/figures/figSSDcmltvSD.svg", width = plot_width, height = plot_height, bg = "white")
+```
+
+```{r}
+figHLcmltvSD <- ggplot(HLsexsd, aes(x=cmltv.diff, y=adj.bs, group=Sex, color=Sex, shape=Sex, linetype=Sex)) + 
+  geom_ribbon(data = ~ subset(.x, Sex == "Female"),
+    aes(x = cmltv.diff, ymin = cmltv.diff * F_H2.5xCSD, ymax = cmltv.diff * F_H97.5xCSD), 
+    alpha = 0.38, color = NA, show.legend = FALSE, fill = H_col) +
+  geom_ribbon(data = ~ subset(.x, Sex == "Male"),
+    aes(x = cmltv.diff, ymin = cmltv.diff * M_H2.5xCSD, ymax = cmltv.diff * M_H97.5xCSD), 
+    alpha = 0.38, color = NA, show.legend = FALSE, fill = H_col) +  
+  geom_hline(yintercept=0, color = C_col)+
+  geom_vline(xintercept=0) +
+  geom_point(size=3) +
+  geom_point(color = "white", size=1.25) +
+  labs(
+#    title = "High Line: Indirect Selection on the Sexes",
+    x = "Indirect Cumulative Selection Differential",
+    y = "Adjusted Body Size") +
+  ylim(-0.044, 0.077) +
+  xlim(-0.2,0.3) +
+  theme_cowplot() +
+  theme(
+    legend.position = c(0.7, 0.25),
+    legend.title.align=0.5,
+    legend.background = element_rect(fill="lightgrey", 
+                                  size=0.5, linetype="solid"),
+    strip.text.y = element_text(size = 20),
+    strip.text.x = element_text(size = 20))+
+  geom_smooth(method=lm, se=FALSE, formula=y~x-1) +
+  scale_color_manual(values = c(H_col,H_col)) +
+  scale_shape_manual(values = c(point_shapeF, point_shapeM)) +  
+  scale_linetype_manual(values = c(line_F, line_M))
+
+figHLcmltvSD
+ggsave("~/Documents/SSD_Data/Thesis/figures/figHLcmltvSD.png", width = plot_width/2, height = plot_height, bg = "white")
+ggsave("~/Documents/SSD_Data/Thesis/figures/figHLcmltvSD.svg", width = plot_width/2, height = plot_height, bg = "white")
+
+
+ggplot(HLsexsd, aes(x=cmltv.diff, y=adj.bs)) +
+  geom_hline(yintercept=0, color = C_col)+
+  geom_vline(xintercept=0) +
+  labs(
+#    title = "High Line: Indirect Selection on the Sexes",
+    x = "Indirect Cumulative Selection Differential",
+    y = "Adjusted Body Size") +
+  ylim(-0.044, 0.077) +
+  xlim(-0.2,0.3) +
+  theme_cowplot() +
+  theme(
+    legend.position = c(0.7, 0.25),
+    legend.title.align=0.5,
+    legend.background = element_rect(fill="lightgrey", 
+                                  size=0.5, linetype="solid"),
+    strip.text.y = element_text(size = 20),
+    strip.text.x = element_text(size = 20))
+
+ggsave("~/Documents/SSD_Data/Thesis/figures/figHLcmltvSDempty.png", width = plot_width/2, height = plot_height, bg = "white")
+ggsave("~/Documents/SSD_Data/Thesis/figures/figHLcmltvSDempty.svg", width = plot_width/2, height = plot_height, bg = "white")
+
+figLLcmltvSD <- ggplot(LLsexsd, aes(x=cmltv.diff, y=adj.bs, group=Sex, color=Sex, shape=Sex, linetype=Sex)) + 
+  geom_ribbon(data = ~ subset(.x, Sex == "Female"),
+    aes(x = cmltv.diff, ymin = cmltv.diff * F_L2.5xCSD, ymax = cmltv.diff * F_L97.5xCSD), 
+    alpha = 0.38, color = NA, show.legend = FALSE, fill = L_col) +
+  geom_ribbon(data = ~ subset(.x, Sex == "Male"),
+    aes(x = cmltv.diff, ymin = cmltv.diff * M_L2.5xCSD, ymax = cmltv.diff * M_L97.5xCSD), 
+    alpha = 0.38, color = NA, show.legend = FALSE, fill = L_col) +  
+  geom_hline(yintercept=0, color = C_col)+
+  geom_vline(xintercept=0) +
+  geom_point(size=3) +
+  geom_point(color = "white", size=1.25) +
+  labs(
+#    title = "Low Line: Indirect Selection on the Sexes",
+    x = "Indirect Cumulative Selection Differential",
+    y = "Adjusted Body Size") +
+  coord_cartesian(
+    ylim = c(-0.044, 0.077),
+    xlim = c(-0.2, 0.3),
+    expand = TRUE
+) +
+ # labs(title = "Indirect Selection on Low Line Sexes") +
+  theme_cowplot() +
+  theme(
+    legend.position = c(0.7, 0.25),
+    legend.title.align=0.5,
+    legend.background = element_rect(fill="lightgrey", 
+                                  size=0.5, linetype="solid"),
+    strip.text.y = element_text(size = 20),
+    strip.text.x = element_text(size = 20))+
+  geom_smooth(method=lm, se=FALSE, formula=y~x-1) +
+  scale_color_manual(values = c(L_col,L_col)) +
+  scale_shape_manual(values = c(point_shapeF, point_shapeM)) +  
+  scale_linetype_manual(values = c(line_F, line_M))
+
+figLLcmltvSD
+ggsave("~/Documents/SSD_Data/Thesis/figures/figLLcmltvSD.png", width = plot_width/2, height = plot_height, bg = "white")
+ggsave("~/Documents/SSD_Data/Thesis/figures/figLLcmltvSD.svg", width = plot_width/2, height = plot_height, bg = "white")
+
+ggplot(HLsexsd, aes(x=cmltv.diff, y=adj.bs)) +
+  geom_hline(yintercept=0, color = C_col)+
+  geom_vline(xintercept=0) +
+  labs(
+#    title = "Low Line: Indirect Selection on the Sexes",
+    x = "Indirect Cumulative Selection Differential",
+    y = "Adjusted Body Size") +
+  ylim(-0.044, 0.077) +
+  xlim(-0.2,0.3) +
+  theme_cowplot() +
+  theme(
+    legend.position = c(0.7, 0.25),
+    legend.title.align=0.5,
+    legend.background = element_rect(fill="lightgrey", 
+                                  size=0.5, linetype="solid"),
+    strip.text.y = element_text(size = 20),
+    strip.text.x = element_text(size = 20))
+
+ggsave("~/Documents/SSD_Data/Thesis/figures/figLLcmltvSDempty.png", width = plot_width/2, height = plot_height, bg = "white")
+ggsave("~/Documents/SSD_Data/Thesis/figures/figLLcmltvSDempty.svg", width = plot_width/2, height = plot_height, bg = "white")
+```
+
+```{r}
+bottom_row <- plot_grid(figHLcmltvSD, figLLcmltvSD, labels = c('B', 'C'), label_size = 16)
+plot_grid(figSSDcmltvSD, bottom_row, labels = c('A', ''), label_size = 16, ncol = 1, 
+          rel_heights = c(2, 1))
+
+ggsave("~/Documents/SSD_Data/Thesis/figures/fig2.4.png", width = plot_width, height = plot_width-2, bg = "white")
+```
+
+#Aim 2
+##SSD
+```{r}
+char_ssd$...1 <- NULL #remove first column
+colnames(char_ssd)[which(names(char_ssd) == "Label")] <- "id" #rename Label to id
+colnames(char_ssd)[which(names(char_ssd) == "Area")] <- "area" #rename Area to area
+char_ssd$area.ln <- log(char_ssd$area) #log is ln in base r, so this is ln area
+char_ssd$treatment <- as.factor(substr(char_ssd$id, 1, 1))
+char_ssd$line.id <- as.factor(substr(char_ssd$id, 1, 3))
+char_ssd$line.sex <- as.factor(substr(char_ssd$id, 1, 5))
+char_ssd$sex <- as.factor(substr(char_ssd$id, 5, 5)) #sex column
+col_order <- c("id", "treatment", "line.sex", "line.id", "sex", "area.ln", "area") #order I want
+char_ssd <- char_ssd[, col_order] #applying that order
+char_ssd
+
+library(plyr)
+line.means <- ddply(char_ssd,c("line.id","sex"),summarise, mean=mean(area.ln)) #taking ln means by family and sex
+sheet1 <- pivot_wider(line.means, names_from = sex, values_from = mean) #making sheet1 from group.means
+names(sheet1)[names(sheet1) == "F"] <- "mean.f" #giving new titles for the columns
+names(sheet1)[names(sheet1) == "M"] <- "mean.m"
+sheet1$mean.diff <- abs(sheet1$mean.f - sheet1$mean.m) #column of absolute values of mean differences
+sheet1
+
+p <- ggplot(char_ssd, aes(x=line.id, y=area.ln, group=line.sex, color=sex)) + 
+  geom_boxplot() #check that there are no typos in data
+p + theme_classic()
+
+filtered_char_ssd <- char_ssd %>% 
+  filter(line.id %in% c("H34", "L30", "C38"))
+
+q <- ggplot(filtered_char_ssd, aes(x=line.id, y=area.ln, group=line.sex, color=sex)) + 
+  geom_boxplot() #check that there are no typos in data
+q + theme_classic()
+```
+
+bootstrapping iso data
+```{r}
+bootisoSSD <- data.frame()
+
+for (i in 1:1000) {
+  samp <- stratified(char_ssd, c("line.id", "sex"), 0.9999999, replace = TRUE) #resample individual sizes
+  samp.line.means <- ddply(samp,c("line.id","sex"),summarise, mean=mean(area.ln)) #find means of each sex for each line
+  samp.means.adj <- pivot_wider(samp.line.means, names_from = sex, values_from = mean) #pivot data
+  samp.means.adj$SSD <- abs(samp.means.adj$F - samp.means.adj$M) #find SSD
+  bootisoSSD <- rbind(bootisoSSD, samp.means.adj$SSD) #bind to data frame
+  i = i-1 #reduce i before looping
+}
+
+colnames(bootisoSSD) =  c(samp.means.adj$line.id) #get line names from samp.means.adj
+
+beep(5)
+
+detach("package:plyr", unload = TRUE)
+```
+
+pulling 95% CI from bootstrapped data
+```{r}
+sheet1$I2.5 <- apply(bootisoSSD, 2, function(x) quantile(x, 0.025))
+sheet1$I97.5 <- apply(bootisoSSD, 2, function(x) quantile(x, 0.975))
+sheet1$Treatment <- as.factor(substr(sheet1$line.id, 1, 1))
+sheet1
+```
+
+graphing with 95% CI
+```{r}
+Aim2SSD <- ggplot(data=sheet1, aes(x=reorder(line.id, mean.diff), y=mean.diff, fill=Treatment)) +
+  scale_fill_manual(values = c(C.col, H.col, L.col)) +     
+  geom_bar (stat="identity", position=position_dodge()) +
+  geom_hline(yintercept = 0.136279215, color = C_col) +
+  geom_errorbar( aes(x=line.id, ymin=I2.5, ymax=I97.5), width=0.4, alpha=0.38, size=1.3) +
+  ylab("SSD")+
+  xlab("Isogenized Lineage")+
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 0.21)) + 
+  #geom_point(aes(y=original.diff), width=0.7) +
+  labs(title = "Sexual Size Dimorphism of Isogenized Lines") +
+  theme_cowplot() +
+  theme(
+    panel.grid.major.x = element_blank(),  
+    panel.grid.minor.x = element_blank(),  
+    legend.position = "none",
+    legend.title.align=0.5,
+    legend.background = element_rect(fill="lightgrey", 
+                                  size=0.5, linetype="solid"),
+    strip.text.y = element_text(size = 25),
+    strip.text.x = element_text(size = 25),
+    axis.text.x = element_text(angle = 60, vjust = 1, hjust = 1)
+    )
+
+Aim2SSD
+ggsave("~/Documents/SSD_Data/Thesis/figures/Aim2SSD.png", width = plot_width/2, height = plot_height)
+ggsave("~/Documents/SSD_Data/Thesis/figures/Aim2SSD.svg", width = plot_width/2, height = plot_height)
+```
+
+##MVW
+```{r mvw characterization code}
+char_mvw$line <- as.factor(substr(char_mvw$id, 1, 1))
+char_mvw$day <- as.factor(substr(char_mvw$id, 6, 6))
+char_mvw$mass <- as.numeric(substr(char_mvw$id, 8, 11))
+col_order <- c("id", "line", "day", "mass", "pupated", "eclosed", "sex") #order I want
+char_mvw <- char_mvw[, col_order] #applying that order
+char_mvw <- char_mvw %>%
+  filter(across(everything(), ~ !is.na(.) & str_trim(.) != ""))
+char_mvw
+
+counts <- aggregate(n ~ line + sex, 
+                   data = transform(char_mvw[char_mvw$sex %in% c("Male", "Female"), ], 
+                   n = 1), 
+                   FUN = length)
+
+inv_probs <- do.call(rbind, lapply(split(counts, counts$line), function(x) {
+  data.frame(
+    line = unique(x$line),
+    female_prob = x$n[x$sex == "Male"] / sum(x$n), #male adult prob = female unknown prob
+    male_prob = x$n[x$sex == "Female"] / sum(x$n) #female adult prob = male unknown prob
+  )
+}))
+
+char_mvw <- char_mvw %>% 
+  left_join(inv_probs, by = "line")
+char_mvw <- char_mvw[, !colnames(char_mvw) %in% c("inverse_ratio", "inverse_FM_adult")]
+char_mvw
+
+boot50 <- data.frame(FC = numeric(0), MC = numeric(0), FH = numeric(0), MH = numeric(0), FL = numeric(0), ML = numeric(0)) #empty data frame and columns
+curve_storage <- list()
+mass_grid <- seq(0, max(char_mvw$mass), length.out = 1000)
+set.seed(123)
+
+for (i in 1:1000) { #loop :x #of times
+  samp <- stratified(char_mvw, c("line", "sex"), 0.9999999, replace = TRUE) #resample individual sizes
+  unknown_mask <- samp$sex == "Unknown"
+  samp$sex[unknown_mask] <- sapply(samp$line[unknown_mask], function(l) { #resampling 
+    probs <- inv_probs[inv_probs$line == l, c("female_prob", "male_prob")]
+    sample(c("Female", "Male"), 1, prob = probs)})
+  #pulling dose50 valueshead
+  FH50 <- dose.p(glm(eclosed ~ mass, data = samp[samp$sex == "Female" & samp$line == "H", ], family = binomial), p = 0.5)[[1]]
+  MH50 <- dose.p(glm(eclosed ~ mass, data = samp[samp$sex == "Male" & samp$line == "H", ], family = binomial), p = 0.5)[[1]]
+  FL50 <- dose.p(glm(eclosed ~ mass, data = samp[samp$sex == "Female" & samp$line == "L", ], family = binomial), p = 0.5)[[1]]
+  ML50 <- dose.p(glm(eclosed ~ mass, data = samp[samp$sex == "Male" & samp$line == "L", ], family = binomial), p = 0.5)[[1]]
+  FC50 <- dose.p(glm(eclosed ~ mass, data = samp[samp$sex == "Female" & samp$line == "C", ], family = binomial), p = 0.5)[[1]]
+  MC50 <- dose.p(glm(eclosed ~ mass, data = samp[samp$sex == "Male" & samp$line == "C", ], family = binomial), p = 0.5)[[1]]
+  boot50 <- rbind(boot50, data.frame(FH = FH50, MH = MH50, FL = FL50, ML = ML50, FC = FC50, MC = MC50)) #storing values
+  samp_model <- glm(eclosed ~ mass * sex * line, data = samp, family = binomial)
+  pred_grid <- expand.grid(
+    mass = mass_grid,
+    sex = c("Female", "Male"),
+    line = c("H", "L", "C")
+  )
+  pred_grid$prob <- predict(samp_model, newdata = pred_grid, type = "response")
+  pred_grid$bootstrap_iter <- i
+  curve_storage[[i]] <- pred_grid
+}
+
+apply(boot50, 2, quantile, probs = c(0.025, 0.5, 0.975))
+all_curves <- do.call(rbind, curve_storage)
+
+beep(5)
+```
+
+```{r}
+#detach("package:plyr", unload = TRUE)
+quant_curves <- all_curves %>%
+  group_by(mass, sex, line) %>%
+  summarize(lower = quantile(prob, probs = 0.025), 
+            mean = quantile(prob, probs = 0.5),
+            upper = quantile(prob, probs = 0.975),
+  .groups = "drop")
+```
+
+```{r MVW plotting}
+#add texture to males
+#put males and females together on bar plot
+
+MVWcurves <- ggplot(quant_curves, aes(x = mass, 
+                         color = paste(sex, line),  
+                         fill = paste(sex, line))) +  
+  geom_line(aes(y = mean, linetype = sex), linewidth = 0.8) +  
+  geom_ribbon(aes(ymin = lower, ymax = upper, alpha = sex), color = NA) +  
+  labs(x = "Mass", y = "Probability", 
+       color = "Group", fill = "Group", linetype = "Sex", alpha = "Sex") +
+  scale_fill_manual(values = c(
+    "Female H" = H_col,
+    "Male H" = H_col,
+    "Female L" = L_col,
+    "Male L" = L_col,
+    "Female C" = C_col,
+    "Male C" = C_col
+  )) +
+  scale_color_manual(values = c(
+    "Female H" = H_col,
+    "Male H" = H_col,
+    "Female L" = L_col,
+    "Male L" = L_col,
+    "Female C" = C_col,
+    "Male C" = C_col
+  )) +
+  scale_linetype_manual(values = c("Female" = line_F, "Male" = line_M)) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, NA)) + 
+  scale_alpha_manual(values = c("Female" = 0.45, "Male" = 0.35)) +
+  geom_hline(yintercept = 0.5, linetype = "dotted") +
+  labs(
+    title = "Survival Curves",
+    x = "Larval Mass (ug)",
+    y = "Probability of Survival"
+  ) +
+  theme_cowplot() +
+  theme(
+    legend.position = "none",
+    legend.title.align = 0.5,
+    legend.background = element_rect(fill = "lightgrey", 
+                                  size = 0.5, linetype = "solid"),
+    strip.text.y = element_text(size = 20),
+    strip.text.x = element_text(size = 20)
+  ) +
+  guides(alpha = "none")
+
+MVWcurves
+#ggsave("~/Documents/SSD_Data/Thesis/figures/MVWcurves.png", width = plot_width, height = plot_height, bg = "white")
+#ggsave("~/Documents/SSD_Data/Thesis/figures/MVWcurves.svg", width = plot_width, height = plot_height, bg = "white")
+
+# Extract the legend. Returns a gtable
+#leg <- get_legend(MVWcurves)
+
+# Convert to a ggplot and print
+#as_ggplot(leg)
+#ggsave("~/Documents/SSD_Data/Thesis/figures/MVWcurves.svg", width = plot_width/2, height = plot_height, bg = "white")
+
+#detach("package:plyr", unload = TRUE)
+
+boot50_long <- boot50 %>%
+  pivot_longer(
+    cols = c(FH, MH, FL, ML, FC, MC),
+    names_to = "group",
+    values_to = "value"
+  ) %>%
+  group_by(group) %>%
+  summarise(
+    mean = mean(value, na.rm = TRUE),
+    lower = quantile(value, 0.025, na.rm = TRUE),  # 95% CI lower
+    upper = quantile(value, 0.975, na.rm = TRUE)   # 95% CI upper
+  )
+
+MVW50 <- ggplot(boot50_long, aes(x = group, y = mean, fill = group)) +
+  geom_col(width = 0.7) +  # Bars
+  geom_errorbar(
+    aes(ymin = lower, ymax = upper),
+    width = 0.2,          # Width of error bar caps
+    linewidth = 0.8,      # Thickness of error bars
+    color = "black"
+  ) +
+  # Color scheme (pink for females, blue for males)
+  scale_fill_manual(values = c(
+    "FH" = H_col, 
+    "MH" = H_col, 
+    "FL" = L_col, 
+    "ML" = L_col  
+  )) +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, NA)) +
+  labs(
+    title = "MVW with 95% Confidence Intervals",
+    x = "Sex and Line",
+    y = "Larval Mass (ln(ug))"
+  ) +
+  theme_cowplot() +
+  theme(
+    legend.position = "none",
+    strip.text.y = element_text(size = 20),
+    strip.text.x = element_text(size = 20))
+
+MVW50
+ggsave("~/Documents/SSD_Data/Thesis/figures/MVW50.png", width = plot_width, height = plot_height, bg = "white")
+ggsave("~/Documents/SSD_Data/Thesis/figures/MVW50.svg", width = plot_width, height = plot_height, bg = "white")
+```
+
+##AGING
+```{r aging characterization code}
+death_records <- char_aging %>%
+  pivot_longer(cols = starts_with("DAY"), names_to = "day", names_prefix = "DAY", values_to = "count") %>%
+  mutate(day = as.numeric(day)) %>%
+  group_by(GROUP) %>%
+  arrange(day) %>%
+  mutate(deaths = lag(count, default = first(count)) - count) %>%
+  filter(deaths > 0) %>%
+  uncount(deaths) %>%
+  group_by(GROUP) %>%
+  mutate(id = paste0(GROUP, str_pad(row_number(), 2, pad = "0"))) %>%
+  ungroup() %>%
+  select(id, time = day)
+```
+
+```{r}
+death_records <- char_aging %>%
+  tidyr::pivot_longer(
+    cols = starts_with("DAY"),
+    names_to = "day",
+    names_prefix = "DAY",
+    values_to = "count"
+  ) %>%
+  dplyr::mutate(
+    day = as.numeric(day),
+    deaths = count - dplyr::lag(count, default = dplyr::first(count)),
+    .by = GROUP
+  ) %>%
+  tidyr::drop_na() %>%
+  tidyr::uncount(deaths) %>%
+  dplyr::mutate(
+    id = paste0(GROUP, stringr::str_pad(dplyr::row_number(), 2, pad = "0")),
+    .by = GROUP
+  )
+
+death_records$line <- as.factor(substr(death_records$id, 1, 1))
+death_records$treatment <- as.factor(substr(death_records$id, 2, 2))
+death_records$sex <- as.factor(substr(death_records$id, 3, 3))
+death_records$vial <- as.factor(substr(death_records$id, 4, 4))
+death_records$status <- 1
+
+death_records <- death_records %>%
+  mutate(line = factor(line, levels = c("O", "L", "H")))
+
+coxph(Surv(time, status) ~ line * sex * treatment, data = death_records) %>% 
+  anova()
+```
+
+```{aging plots}
+explanatory <- c("line", "sex", "treatment")
+dependent <- "Surv(time, status)"
+death_records %>% 
+    hr_plot(dependent, explanatory)
+
+surv_obj <- Surv(time = death_records$time, event = death_records$status)
+
+ggsurvplot_facet(
+  fit = survfit(Surv(time, status) ~ sex, data = death_records),
+  data = death_records,
+  facet.by = c("treatment", "line"),
+  xlim = c(0, 75),
+  short.panel.labs = TRUE,
+  pval = TRUE,            
+  conf.int = TRUE,        
+  risk.table = TRUE,      
+  palette = "jco",        
+  ggtheme = theme_minimal()
+)
+```
+
+##FERTILITY
+
+##VITALITY
+
+#AIM 3
+
+##GWAS
+
+##PoolSeq

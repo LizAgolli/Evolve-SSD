@@ -1,0 +1,165 @@
+---
+title: "Morphospace"
+output: html_document
+date: "2025-09-26"
+---
+```{r}
+library(survival)
+library(tidyverse)
+library(finalfit)
+library(dplyr)
+library(readxl)
+library(readr)
+library(forcats)
+library(beepr)
+library(cowplot)
+library(tidyr)
+library(scales)
+library(tidyverse)
+library(ggplot2)
+library(ggthemes)
+library(stringr)
+library(splitstackshape)
+library(MASS)
+library(investr)
+library(survminer)
+#detach("package:plyr", unload = TRUE)
+setwd("~/Documents/SSD_Data") #folder files are in
+
+L_col <- "#004c84"  # Low line color
+L.col <- '#004c84'
+H_col <- "#ffb656"  # High line color
+H.col <- '#ffb656'
+C_col <- "#7f7f7f"
+C.col <- '#7f7f7f'
+
+iVf <- read.csv("initialVfinalFamily.csv")
+diffdat <- read_excel("SSD_means_.xlsx", sheet="generational differentials")
+rawfvw <- read_excel("tonyFVWraw.xlsx", sheet = "COMBINE")
+```
+```{r filtering FVW}
+fvw <- drop_na(rawfvw)
+fvw$logpupa <- log(fvw$pupa)
+fvw$logwing <- log(fvw$wing)
+
+fvwtop <- fvw %>%
+  group_by(lineage, sex) %>%
+#  filter(pupa < quantile(pupa, 0.15) | pupa > quantile(pupa, 0.85)) %>%
+  filter(logpupa > quantile(logpupa, 0.75)) %>%
+    ungroup()
+
+head(fvwtop)
+```
+
+```{r initial vs final}
+intVfin <- ggplot(iVf, aes(x=mean.m, y=mean.f, group=line, color=line)) +
+  geom_point(aes(shape = line, size = .1, alpha = line)) +
+  scale_shape_manual(values = c("C" = 16, "H" = 16, "I" = 1, "L" = 16)) +
+  scale_color_manual(values = c("C" = C_col, 
+                               "H" = H_col, 
+                               "I" = "black", 
+                               "L" = L_col)) +
+  scale_alpha_manual(values = c("C" = 0.5, "H" = 0.5, "I" = 1, "L" = 0.5), guide = "none") + # Consistent alpha
+  theme_cowplot()
+
+intVfin
+#ggsave("C:/Users/lizch/Desktop/Data_Art_SSD/Committee2025/intVfin.png", width = plot_width/2, height = plot_height, bg = "white")
+#ggsave("C:/Users/lizch/Desktop/Data_Art_SSD/Committee2025/intVfin.svg", width = plot_width/2, height = plot_height, bg = "white")
+
+#subset data
+FvML <- subset(diffdat, select = c(generation, L.mean.f, L.mean.m))
+FvMH <- subset(diffdat, select = c(generation, H.mean.f, H.mean.m))
+FvMC <- subset(diffdat, select = c(generation, C.mean.f, C.mean.m))
+
+#add line
+FvML$line <- as.factor("L")
+FvMH$line <- as.factor("H")
+FvMC$line <- as.factor("C")
+
+#rename columns
+names(FvML)[names(FvML) == "L.mean.f"] <- "mean.f"
+names(FvML)[names(FvML) == "L.mean.m"] <- "mean.m"
+names(FvMH)[names(FvMH) == "H.mean.f"] <- "mean.f"
+names(FvMH)[names(FvMH) == "H.mean.m"] <- "mean.m"
+names(FvMC)[names(FvMC) == "C.mean.f"] <- "mean.f"
+names(FvMC)[names(FvMC) == "C.mean.m"] <- "mean.m"
+FvM <- rbind(FvMC, FvMH, FvML)
+print(FvM)
+
+FvMplot <- ggplot(FvM, aes(x = mean.m, y = mean.f, group=line, color=line)) +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0, color = "black") +
+  scale_y_continuous(limits=c((14.975-.10), 14.975), expand = c(0, 0)) +
+  scale_x_continuous(limits=c(14.725, (14.725+.10)), expand = c(0, 0))+
+  geom_path(arrow = arrow(angle = 10, ends= "both", type = "closed"),size=0.5)
+
+FvMplot
+ggsave("~/Documents/SSD_Data/Committee2025/FvM.png", width = 5, height = 5, bg = "white")
+```
+
+```{r}
+iVf$dataset <- "points"
+FvM$dataset <- "path"
+
+combined_data <- bind_rows(iVf, FvM)
+
+path_arrows <- FvM %>%
+  arrange(line, generation) %>%
+  group_by(line) %>%
+  mutate(
+    x_end = lead(mean.m),
+    y_end = lead(mean.f),
+    generation_end = lead(generation)
+  ) %>%
+  filter(!is.na(x_end)) %>%  # Remove the last point which has no next generation
+  ungroup()
+
+plotstuff <- ggplot(combined_data, aes(x = mean.m, y = mean.f, group = line, color = line)) +
+  scale_color_manual(values = c("C" = C_col, "H" = H_col, "I" = "black", "L" = L_col)) +
+  theme_cowplot() +
+  theme(legend.position = "none")
+
+iVf_points <- plotstuff +
+  geom_smooth(data = subset(combined_data, dataset == "points" & line == "I"), method = "glm", color = "black",  linetype = "dashed", se = FALSE, size = 0.5) +
+  geom_smooth(data = subset(combined_data, dataset == "points" & line == "C"), method = "glm", color = C_col,  linetype = "dashed", se = FALSE, size = 0.5) +
+  geom_smooth(data = subset(combined_data, dataset == "points" & line == "H"), method = "glm", color = H_col,  linetype = "dashed", se = FALSE, size = 0.5) +
+  geom_smooth(data = subset(combined_data, dataset == "points" & line == "L"), method = "glm", color = L_col,  linetype = "dashed", se = FALSE, size = 0.5) +
+  geom_point(data = subset(combined_data, dataset == "points"), aes(shape = line, alpha = line)) +
+  scale_shape_manual(values = c("C" = 16, "H" = 16, "I" = 1, "L" = 16))
+
+iVf_lines <- plotstuff +
+  geom_smooth(data = subset(combined_data, dataset == "points" & line == "I"), method = "glm", color = "black",  linetype = "dashed", se = FALSE, size = 0.5) +
+  geom_smooth(data = subset(combined_data, dataset == "points" & line == "C"), method = "glm", color = C_col,  linetype = "dashed", se = FALSE, size = 0.5) +
+  geom_segment(data = path_arrows,
+               aes(x = mean.m, y = mean.f, 
+                   xend = x_end, yend = y_end,
+                   group = line, color = line),
+               arrow = arrow(angle = 10, length = unit(0.1, "inches")),
+               size = 0.5) #+
+  #geom_abline(intercept is observed SSD slope is 1)
+
+#add ssd is 1:1 line 
+#major axis regression instead of glm
+
+iVf_points
+iVf_lines
+```
+
+iVf_combined <- plotstuff +
+  geom_smooth(data = subset(combined_data, dataset == "points" & line == "I"), method = "glm", color = "black",  linetype = "dashed", se = FALSE, size = 0.5) +
+  geom_smooth(data = subset(combined_data, dataset == "points" & line == "C"), method = "glm", color = C_col,  linetype = "dashed", se = FALSE, size = 0.5) +
+  geom_smooth(data = subset(combined_data, dataset == "points" & line == "H"), method = "glm", color = H_col,  linetype = "dashed", se = FALSE, size = 0.5) +
+  geom_smooth(data = subset(combined_data, dataset == "points" & line == "L"), method = "glm", color = L_col,  linetype = "dashed", se = FALSE, size = 0.5) +
+  geom_point(data = subset(combined_data, dataset == "points"), aes(shape = line, alpha = line)) +
+  scale_shape_manual(values = c("C" = 16, "H" = 16, "I" = 1, "L" = 16)) +
+  scale_alpha_manual(values = c("C" = 0.5, "H" = 0.5, "I" = 1, "L" = 0.5), guide = "none") +
+  geom_segment(data = path_arrows,
+               aes(x = mean.m, y = mean.f, 
+                   xend = x_end, yend = y_end,
+                   group = line, color = line),
+               arrow = arrow(angle = 10, length = unit(0.1, "inches")),
+               size = 0.5) +
+
+iVf_combined
+ggsave("~/Documents/SSD_Data/Committee2025/FvM.png", width = 5, height = 5, bg = "white")
+```
