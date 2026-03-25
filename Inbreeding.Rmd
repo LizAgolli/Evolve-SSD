@@ -1,0 +1,99 @@
+---
+title: "Inbreeding Coefficients"
+author: "Liz Chen"
+date: "2026-03-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(ribd)
+library(dplyr)
+
+setwd("~/Documents/SSD_Data")
+```
+
+```{r}
+ped_data <- read.csv("Pedigree Data.csv")
+head(ped_data)
+```
+
+
+```{r}
+#Convert to ribd pedigree object
+ped_obj <- ped(
+  id = ped_data$full.ID,
+  fid = ped_data$sire,
+  mid = ped_data$dam,
+  sex = rep(0, nrow(ped_data))
+)
+
+#Calculate inbreeding coefficients for all individuals
+results_ribd <- data.frame(
+  id = ped_data$full.ID,
+  inbreeding_coefficient = inbreeding(ped_obj)
+)
+
+#Extract line and generation
+results_ribd$line_generation <- substr(results_ribd$id, 1, 3)
+results_ribd$line <- as.factor(substr(results_ribd$id, 1, 1))
+results_ribd$generation <- substr(results_ribd$id, 2, 3)
+
+mean_gen_F <- results_ribd %>%
+  group_by(line_generation) %>%
+  summarise(mean_inbreed = mean(inbreeding_coefficient, na.rm = TRUE))
+
+lm_results <- subset(results_ribd, generation != "00")
+lm_results$num.gen <- as.numeric(lm_results$generation)
+
+results_ribd <- subset(results_ribd, generation != "00" & generation != "01") #remove generations 00 and 01 from plotting as inbreeding coefficient is 0 for those generations due to experimental design
+
+head(results_ribd)
+```
+
+```{r}
+medians <- results_ribd %>%
+  group_by(line, generation) %>%
+  summarise(median_f = median(inbreeding_coefficient, na.rm = TRUE), .groups = 'drop')
+
+ggplot(results_ribd, aes(x = inbreeding_coefficient, y = generation, fill = line)) +
+  geom_density_ridges(alpha = 0.4, scale = 1.5, bandwidth = 0.008, linewidth = 0) +
+  geom_point(data = medians, 
+             aes(x = median_f, y = generation),
+             color = "white",
+             size = 2.5) +
+  geom_path(data = medians, 
+            aes(x = median_f, y = generation, color = line, group = line),
+            size = 0.8) +
+  geom_point(data = medians, 
+             aes(x = median_f, y = generation, color = line),
+             size = 2) +
+  scale_fill_manual(values = c("#7f7f7f", "#ffb656", "#004c84"),
+                    labels = c("Control", "High", "Low")) +
+  scale_color_manual(values = c("#7f7f7f", "#ffb656", "#004c84"),
+                     labels = c("Control", "High", "Low")) +
+  xlab("Inbreeding Coefficient") +
+  ylab("Generation") +
+  theme_minimal() + 
+  theme(
+    panel.grid.minor.y = element_blank(), 
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor.x = element_blank(), 
+    panel.grid.major.x = element_blank(),
+    legend.title = element_blank(),
+    legend.position = c(0.1, 0.9),
+    legend.justification = c(0, 1),
+    legend.background = element_rect(fill = "white", color = NA, linewidth = 0.5)
+  ) +
+  coord_flip()
+#MOVE LEGEND
+
+ggsave("~/Documents/SSD_Data/Thesis/figures/inbreed_coef.png", width = 12, height = 6)
+```
+
+```{r}
+model <- lm(inbreeding_coefficient ~ line * num.gen - 1, data = lm_results)
+summary(model)
+anova(model)
+```
