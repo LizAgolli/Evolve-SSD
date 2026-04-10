@@ -1,0 +1,153 @@
+---
+title: "Trying something new"
+author: "Elizabeth Chen"
+date: "2023-04-19"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(readr) #read csv by read_csv("file.csv")
+library(readxl)#read excel by read_excel("file.xlsx", sheet=)
+library(boot) #boot strapping
+library(plyr)
+library(dplyr) #subsetting
+library(ggplot2) #graphing
+library(tidyr)
+library(ggthemes) #graph themes
+library(splitstackshape) #for bootstrapping
+library(beepr)
+library(cowplot)
+
+
+setwd("C:/Users/lizch/Desktop/Data_Art_SSD") #folder file is in
+
+#read file
+inddat <- read_excel("SSD_means_.xlsx", sheet="individuals")
+```
+
+```{r}
+i <- 1000
+slope_df <- NA
+
+
+while (i > 0) {
+  # Resampling data
+  samp <- stratified(inddat, c("line", "generation", "family", "sex"), 0.9999999, replace = TRUE)
+  samp_means <- ddply(samp, c("line", "generation", "family", "sex"), summarise, mean = mean(area.log))
+  samp_means_t <- pivot_wider(samp_means, names_from = sex, values_from = mean)
+  samp_means_t$SSD <- abs(samp_means_t$F - samp_means_t$M)
+  samp_samp_means_with_na <- stratified(samp_means_t, c("line", "generation"), 0.9999999, replace = TRUE)
+  samp_samp_means <- na.omit(samp_samp_means_with_na)
+  
+  # Remaking data
+  # Mean SSD of each generation by line
+  samp_family_means_SSD <- samp_samp_means %>% 
+    group_by(line, generation) %>%         
+    summarise(
+      n = n(),
+      mean_pr = mean(SSD, na.rm = TRUE))
+
+  # Making tables of values by family
+  H_samp_samp_means <- samp_samp_means[samp_samp_means$line == 'H',]
+  H_samp_samp_means <- H_samp_samp_means[order(SSD),]
+  L_samp_samp_means <- samp_samp_means[samp_samp_means$line == 'L',]
+  L_samp_samp_means <- L_samp_samp_means[order(SSD),]
+
+  SSD_table <- cbind(samp_family_means_SSD[1:16, 2:4], samp_family_means_SSD[17:32, 4], samp_family_means_SSD[33:48, 4])
+  SSD_table$generation <- as.numeric(SSD_table$generation)
+  SSD_table$H <- SSD_table[, 4] - SSD_table[, 3]
+  SSD_table$L <- SSD_table[, 5] - SSD_table[, 3]
+  SSD_table$H_CSD <- c(0, 0.029940558, 0.052439652, 0.070671494, 0.092601977, 0.114895664, 0.14086486, 0.161915019, 0.182663064, 0.208545527, 0.225832243, 0.2443349, 0.254413968, 0.277240436, 0.29872041, 0.322334136)
+  SSD_table$L_CSD <- c(0, 0.026525539, 0.048271919, 0.074067151, 0.097363901, 0.121099716, 0.14017384, 0.16384497, 0.180063329, 0.198981374, 0.212649492, 0.233817743, 0.260516437, 0.290041859, 0.344592645, 0.39247383)
+  
+  # Linear regression models
+  lm_H_SSDxGen <- lm(H ~ 0 + generation, data = SSD_table)
+  lm_L_SSDxGen <- lm(L ~ 0 + generation, data = SSD_table)
+  lm_H_SSDxCSD <- lm(H ~ 0 + H_CSD, data = SSD_table)
+  lm_L_SSDxCSD <- lm(L ~ 0 + L_CSD, data = SSD_table)
+
+  # Extract coefficients
+  slope_H_SSDxGen <- summary(lm_H_SSDxGen)$coefficients[1, 1]
+  slope_L_SSDxGen <- summary(lm_L_SSDxGen)$coefficients[1, 1]
+  slope_H_SSDxCSD <- summary(lm_H_SSDxCSD)$coefficients[1, 1]
+  slope_L_SSDxCSD <- summary(lm_L_SSDxCSD)$coefficients[1, 1]
+  
+  samp_family_means_F<-samp_samp_means %>%         # Specify data frame
+  group_by(line, generation) %>%               # Specify group indicator
+  summarise(
+    n = n(),
+    mean_pr = mean(F, na.rm=T))
+  
+  
+  # Create F_table
+  F_table<-cbind(samp_family_means_F[1:16,2:4],samp_family_means_F[17:32,4],samp_family_means_F[33:48,4])
+  F_table$generation<-as.numeric(F_table$generation)
+  F_table$H<-F_table[,4]-F_table[,3]
+  F_table$L<-F_table[,5]-F_table[,3]
+  F_table$H_CSD <- c(0, 0.013547451, 0.022039212, 0.026975527, 0.037869314, 0.042143032, 0.050528057, 0.062008471, 0.066059994, 0.083082607, 0.094203379, 0.097281674, 0.105285571, 0.111688789, 0.129681797, 0.149329382)
+  F_table$L_CSD <- c(0, -0.018142106, -0.031069692, -0.044387919, -0.056268563, -0.064587441, -0.078897132, -0.082913743, -0.090590802, -0.09775666, -0.106589427, -0.114537656, -0.126624728, -0.104123395, -0.093319996, -0.079048441)
+  
+  # Linear regression models
+  lm_H_FxGen <- lm(H ~ 0 + generation, data = F_table)
+  lm_L_FxGen <- lm(L ~ 0 + generation, data = F_table)
+  lm_H_FxCSD <- lm(H ~ 0 + H_CSD, data = F_table)
+  lm_L_FxCSD <- lm(L ~ 0 + L_CSD, data = F_table)
+
+  # Extract coefficients
+  slope_H_FxGen <- summary(lm_H_FxGen)$coefficients[1, 1]
+  slope_L_FxGen <- summary(lm_L_FxGen)$coefficients[1, 1]
+  slope_H_FxCSD <- summary(lm_H_FxCSD)$coefficients[1, 1]
+  slope_L_FxCSD <- summary(lm_L_FxCSD)$coefficients[1, 1]
+  
+  samp_family_means_M<-samp_samp_means %>%         # Specify data frame
+  group_by(line, generation) %>%               # Specify group indicator
+  summarise(
+    n = n(),
+    mean_pr = mean(M, na.rm=T))
+  
+  # Create M_table
+  M_table<-cbind(samp_family_means_M[1:16,2:4],samp_family_means_M[17:32,4],samp_family_means_M[33:48,4])
+  M_table$generation<-as.numeric(M_table$generation)
+  M_table$H<-M_table[,4]-M_table[,3]
+  M_table$L<-M_table[,5]-M_table[,3]
+  M_table$H_CSD <- c(0, -0.016393108, -0.030400439, -0.046747503, -0.057784198, -0.075803814, -0.093387985, -0.10295773, -0.119654253, -0.133439714, -0.139605658, -0.155030021, -0.157105191, -0.173528442, -0.177015408, -0.180981549)
+  M_table$L_CSD <- c(0, 0.008383433, 0.008497031, 0.020973349, 0.032389456, 0.047807395, 0.052571828, 0.072226348, 0.080767648, 0.092519835, 0.097355185, 0.110575208, 0.118722222, 0.16357883, 0.228933014, 0.291085755)
+  M_table
+  
+  # Linear regression models
+  lm_H_MxGen <- lm(H ~ 0 + generation, data = M_table)
+  lm_L_MxGen <- lm(L ~ 0 + generation, data = M_table)
+  lm_H_MxCSD <- lm(H ~ 0 + H_CSD, data = M_table)
+  lm_L_MxCSD <- lm(L ~ 0 + L_CSD, data = M_table)
+
+  # Extract coefficients
+  slope_H_MxGen <- summary(lm_H_MxGen)$coefficients[1, 1]
+  slope_L_MxGen <- summary(lm_L_MxGen)$coefficients[1, 1]
+  slope_H_MxCSD <- summary(lm_H_MxCSD)$coefficients[1, 1]
+  slope_L_MxCSD <- summary(lm_L_MxCSD)$coefficients[1, 1]
+  
+  # Add slopes to the dataframe
+  temp_slope_df <- data.frame(slope_H_SSDxGen = slope_H_SSDxGen,
+                              slope_L_SSDxGen = slope_L_SSDxGen,
+                              slope_H_SSDxCSD = slope_H_SSDxCSD,
+                              slope_L_SSDxCSD = slope_L_SSDxCSD,
+                              slope_H_FxGen = slope_H_FxGen,
+                              slope_L_FxGen = slope_L_FxGen,
+                              slope_H_FxCSD = slope_H_FxCSD,
+                              slope_L_FxCSD = slope_L_FxCSD,
+                              slope_H_MxGen = slope_H_MxGen,
+                              slope_L_MxGen = slope_L_MxGen,
+                              slope_H_MxCSD = slope_H_MxCSD,
+                              slope_L_MxCSD = slope_L_MxCSD)
+  
+  slope_df <- rbind(slope_df, temp_slope_df)
+  
+  i = i-1
+}
+
+slope_df <- slope_df[-1, ] #remove row of NA
+
+write.csv(slope_df, "C:/Users/lizch/Desktop/Data_Art_SSD/bootstrapped slopes.csv", row.names= FALSE)
+
+beep(5)
+```
