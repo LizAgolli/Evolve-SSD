@@ -10,6 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(ggplot2)
 library(ribd)
 library(dplyr)
+library(ggridges)
 
 setwd("~/Documents/SSD_Data")
 ```
@@ -34,6 +35,10 @@ results_ribd <- data.frame(
   id = ped_data$full.ID,
   inbreeding_coefficient = inbreeding(ped_obj)
 )
+
+#tracing back to a the same ID traces to the sibling level, 
+#so shared ancestry is one generation higher than estimated so it must be divided by 2
+results_ribd$inbreeding_coefficient <- (results_ribd$inbreeding_coefficient/2) 
 
 #Extract line and generation
 results_ribd$line_generation <- substr(results_ribd$id, 1, 3)
@@ -86,8 +91,8 @@ ggplot(results_ribd, aes(x = inbreeding_coefficient, y = generation, fill = line
     legend.justification = c(0, 1),
     legend.background = element_rect(fill = "white", color = NA, linewidth = 0.5)
   ) +
-  coord_flip()
-#MOVE LEGEND
+  coord_flip() +
+  scale_x_continuous(breaks = seq(-0.05, 0.25, by = 0.05))
 
 ggsave("~/Documents/SSD_Data/Thesis/figures/inbreed_coef.png", width = 12, height = 6)
 ```
